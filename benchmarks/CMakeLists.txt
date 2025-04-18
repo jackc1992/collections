@@ -14,7 +14,7 @@ set(BENCHMARK_ENABLE_EXCEPTIONS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(googlebenchmark)
 
-SET(BENCHMARK_SOURCES src/spsc_bm.cpp)
+SET(BENCHMARK_SOURCES src/spsc_bm.cpp src/simple_bm.cpp)
 
 ADD_EXECUTABLE(my_benchmarks ${BENCHMARK_SOURCES})
 
