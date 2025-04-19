@@ -45,3 +45,5 @@ compile_commands.json
 
 # ide
 .vscode/
+.idea/
+cmake-build-release
