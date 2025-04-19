@@ -109,6 +109,7 @@ namespace JC_SPSC {
             alignas(std::hardware_destructive_interference_size)std::array<T, sz> items_;
 
         public:
+            cached_spsc() = default;
             bool try_put(T&& element)
             {
                 std::size_t idx = writer_.idx_.load(std::memory_order::relaxed);
