@@ -5,7 +5,8 @@
 #include <pthread.h>
 #include <sched.h>
 #include <thread>
-#include <print>
+#include <boost/lockfree/spsc_queue.hpp>
+#include <folly/ProducerConsumerQueue.h>
 
 void set_thread_affinity(int core_id) {
 #ifdef __linux__
@@ -44,6 +45,48 @@ static void bm_spsc_cached_throughput(benchmark::State& state)
     }
 }
 
+static void bm_boost_spsc_throughput(benchmark::State& state)
+{
+    const int core_id = (state.thread_index() == 0) ? 2 : 3;
+
+    set_thread_affinity(core_id);
+    static boost::lockfree::spsc_queue<bigger> q(512);
+
+    if (state.thread_index() == 0) {
+        // Producer thread loop
+        for (auto _ : state) {
+            while (!q.push(bigger { 0 }));
+        }
+    } else {
+        // Consumer thread loop
+        for (auto _ : state) {
+            bigger val{};
+            while (q.pop(&val, 1) != 1){};
+            benchmark::DoNotOptimize(val);
+        }
+    }
+}
+
+static void bm_folly_spsc_throughput(benchmark::State& state)
+{
+    const int core_id = (state.thread_index() == 0) ? 2 : 3;
+
+    static folly::ProducerConsumerQueue<bigger> q(512);
+
+    if (state.thread_index() == 0) {
+        // Producer thread loop
+        for (auto _ : state) {
+            while (!q.write(bigger { 0 }));
+        }
+    } else {
+        // Consumer thread loop
+        for (auto _ : state) {
+            bigger val{};
+            while (!q.read(val)){};
+            benchmark::DoNotOptimize(val);
+        }
+    }
+}
 
 static void bm_spsc_throughput(benchmark::State& state)
 {
@@ -51,7 +94,7 @@ static void bm_spsc_throughput(benchmark::State& state)
 
     set_thread_affinity(core_id);
 
-    static JC_SPSC::simple_spsc<bigger, 2048> q;
+    static JC_SPSC::simple_spsc<bigger, 512> q;
 
     if (state.thread_index() == 0) {
         // Producer thread loop
@@ -73,7 +116,7 @@ static void bm_rtt_throughput(benchmark::State& state) {
     static auto q2 = JC_SPSC::cached_spsc<T, 512>();
 
     if (state.thread_index() == 0) {
-        set_thread_affinity(3);
+        set_thread_affinity(1);
         for (auto _ : state) {
             q1.put(T());
             T ele = q2.read();
@@ -91,8 +134,10 @@ static void bm_rtt_throughput(benchmark::State& state) {
 }
 
 BENCHMARK(bm_spsc_cached_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
+BENCHMARK(bm_boost_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
+BENCHMARK(bm_folly_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
 BENCHMARK(bm_spsc_throughput)->Threads(2)->UseRealTime()->Iterations(100000000);
-BENCHMARK(bm_rtt_throughput<size_t>)->Threads(2)->UseRealTime()->Range((1 << 16), (1 << 22));
+BENCHMARK(bm_rtt_throughput<int>)->Threads(2)->UseRealTime()->Range((1 << 16), (1 << 22));
 
 
 BENCHMARK_MAIN();

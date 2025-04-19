@@ -1,18 +1,14 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.30)
 
-INCLUDE(FetchContent)
+find_package(Boost 1.88 REQUIRED lockfree)
+find_package(folly CONFIG REQUIRED)
+find_package(gflags CONFIG REQUIRED)
+find_package(benchmark CONFIG REQUIRED)
 
-FetchContent_Declare(
-    googlebenchmark
-    GIT_REPOSITORY https://github.com/google/benchmark.git
-    GIT_TAG        v1.9.2
-)
 
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "Disable Google Benchmark's own tests" FORCE)
 set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "Disable installing Google Benchmark" FORCE)
 set(BENCHMARK_ENABLE_EXCEPTIONS OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(googlebenchmark)
 
 SET(BENCHMARK_SOURCES src/spsc_bm.cpp src/simple_bm.cpp)
 
@@ -24,7 +20,6 @@ SET_TARGET_PROPERTIES(my_benchmarks PROPERTIES CXX_EXTENSIONS ${CMAKE_CXX_EXTENS
 
 TARGET_LINK_LIBRARIES(my_benchmarks PRIVATE
     jc_collections
-
     benchmark::benchmark
 )
 
