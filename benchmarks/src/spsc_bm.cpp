@@ -20,8 +20,8 @@ void set_thread_affinity(int core_id) {
 #endif
 }
 
-struct alignas(4) bigger {
-    int x_;
+struct bigger {
+    int x_[8];
 };
 
 static void bm_spsc_cached_throughput(benchmark::State& state)
@@ -29,12 +29,15 @@ static void bm_spsc_cached_throughput(benchmark::State& state)
     const int core_id = (state.thread_index() == 0) ? 2 : 3;
 
     set_thread_affinity(core_id);
-    static JC_SPSC::cached_spsc<bigger, 512> q;
+    static JC_SPSC::cached_spsc<bigger, 1024> q;
 
     if (state.thread_index() == 0) {
         // Producer thread loop
         for (auto _ : state) {
-            q.put(bigger { 0 });
+            bigger* ele = nullptr;
+            auto idx = q.get_write(&ele);
+            new (ele) bigger { };
+            q.commit(idx);
         }
     } else {
         // Consumer thread loop
@@ -136,7 +139,7 @@ static void bm_rtt_throughput(benchmark::State& state) {
 BENCHMARK(bm_spsc_cached_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
 BENCHMARK(bm_boost_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
 BENCHMARK(bm_folly_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
-BENCHMARK(bm_spsc_throughput)->Threads(2)->UseRealTime()->Iterations(100000000);
+BENCHMARK(bm_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
 BENCHMARK(bm_rtt_throughput<int>)->Threads(2)->UseRealTime()->Range((1 << 16), (1 << 22));
 
 
