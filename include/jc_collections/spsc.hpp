@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstddef>
 #include <bit>
+#include <cstring>
 #include <new>
 #include <optional>
 #include <type_traits>
@@ -28,9 +29,10 @@ namespace JC_SPSC {
     class simple_spsc
     {
         private:
+        static constexpr std::size_t alignment_size = std::max(sizeof(T), std::hardware_destructive_interference_size);
         alignas(64)std::atomic<std::size_t> writer_ = 0;
         alignas(64)std::atomic<std::size_t> reader_ = 0;
-        alignas(64)std::array<T, sz> items_;
+        alignas(alignment_size)std::array<T, sz> items_;
 
         public:
         simple_spsc() = default;
@@ -100,13 +102,16 @@ namespace JC_SPSC {
             static constexpr std::size_t mask = sz - 1;
             struct aligned_indexes
             {
-                alignas(std::hardware_destructive_interference_size)std::atomic<std::size_t> idx_ = 0;
+                std::atomic<std::size_t> idx_ = 0;
                 std::size_t cached_idx_ = 0;
             };
 
+            static constexpr std::size_t padding_size = std::hardware_destructive_interference_size - sizeof(aligned_indexes);
+
             alignas(std::hardware_destructive_interference_size)aligned_indexes writer_;
             alignas(std::hardware_destructive_interference_size)aligned_indexes reader_;
-            alignas(std::hardware_destructive_interference_size)std::array<T, sz> items_;
+            uint8_t padding[padding_size] {};
+            std::array<T, sz> items_;
 
         public:
             cached_spsc() = default;
@@ -141,7 +146,35 @@ namespace JC_SPSC {
                     writer_.cached_idx_ = reader_.idx_.load(std::memory_order_acquire);
                 }
 
-                items_[idx & mask] = std::move(element);
+                std::memcpy(&items_[idx & mask], &element, sizeof(T));
+                writer_.idx_.store(idx + 1, std::memory_order::release);
+            }
+
+            void put(T& element)
+            {
+                std::size_t idx = writer_.idx_.load(std::memory_order::relaxed);
+                while (idx - writer_.cached_idx_ == sz)
+                {
+                    writer_.cached_idx_ = reader_.idx_.load(std::memory_order_acquire);
+                }
+
+                std::memcpy(&items_[idx & mask], &element, sizeof(T));
+                writer_.idx_.store(idx + 1, std::memory_order::release);
+            }
+
+            std::size_t get_write(T** ptr)
+            {
+                std::size_t idx = writer_.idx_.load(std::memory_order::relaxed);
+                while (idx - writer_.cached_idx_ == sz)
+                {
+                    writer_.cached_idx_ = reader_.idx_.load(std::memory_order_acquire);
+                }
+                ptr[0] = &items_[idx & mask];
+                return idx;
+            }
+
+            void commit(std::size_t idx)
+            {
                 writer_.idx_.store(idx + 1, std::memory_order::release);
             }
 
@@ -176,7 +209,8 @@ namespace JC_SPSC {
                     reader_.cached_idx_ = writer_.idx_.load(std::memory_order_acquire);
                 }
 
-                T result = std::move(items_[idx & mask]);
+                T result;
+                __builtin_memcpy(&result, &items_[idx & mask], sizeof(T));
                 reader_.idx_.store(idx + 1, std::memory_order::release);
                 return result;
             }
