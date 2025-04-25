@@ -11,6 +11,11 @@ namespace jc::memory
 template <typename T, size_t amount, typename Allocator>
 class cached_pool_allocator
 {
+    union next_or_t {
+        size_t next_;
+        T item_;
+    };
+
 public:
     using pointer            = T *;
     using const_pointer      = const T *;
@@ -62,7 +67,6 @@ public:
         assert(n <= 256, "max allocation/deallocation is 256");
         assert(p >= items_ && (p + n) <= (items_ + amount), "Pointer out of bounds!");
 
-
         const ptrdiff_t offset = p - items_;
 
         const size_t index = static_cast<size_t>(offset) >> 8;
@@ -72,7 +76,8 @@ public:
         {
             pool_free_count_[index]       = 0;
             pool_allocation_count_[index] = 0;
-        } else if (pool_free_count_[index] == pool_allocation_count_[index]) [[unlikely]]
+        }
+        else if (pool_free_count_[index] == pool_allocation_count_[index]) [[unlikely]]
         {
             bits_.unset_bit(index);
             pool_free_count_[index]       = 0;
@@ -98,5 +103,12 @@ private:
     abstract_allocator<Allocator, T> allocator_;
 };
 } // namespace jc::memory
+
+struct Node
+{
+    int x;
+    int y;
+    Node *next;
+};
 
 #endif

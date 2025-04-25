@@ -262,11 +262,11 @@ static void bm_boost_rtt(benchmark::State &state)
     state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK(bm_rigtorp_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
-BENCHMARK(bm_boost_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
-BENCHMARK(bm_folly_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
-BENCHMARK(bm_spsc_simple_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
-BENCHMARK(bm_spsc_cached_throughput)->Threads(2)->UseRealTime()->MinTime(1.0);
+BENCHMARK(bm_rigtorp_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(3.0);
+BENCHMARK(bm_boost_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(3.0);
+BENCHMARK(bm_folly_spsc_throughput)->Threads(2)->UseRealTime()->MinTime(3.0);
+BENCHMARK(bm_spsc_simple_throughput)->Threads(2)->UseRealTime()->MinTime(3.0);
+BENCHMARK(bm_spsc_cached_throughput)->Threads(2)->UseRealTime()->MinTime(3.0);
 BENCHMARK(bm_rtt_throughput<int>)->Threads(2)->UseRealTime()->Range((1 << 16), (1 << 22));
 BENCHMARK(bm_rigtorp_rtt<int>)->Threads(2)->UseRealTime()->Range((1 << 16), (1 << 22));
 BENCHMARK(bm_boost_rtt<int>)->Threads(2)->UseRealTime()->Range((1 << 16), (1 << 22));
