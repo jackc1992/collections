@@ -88,6 +88,7 @@ private:
         return int_ceil(amount, 256);
     }
     size_t current_bit_ = 0;
+    // tracks which pools are "in use"
     collections::scalar_bitset<bitset_item_count(bitset_item_count())> bits_;
     // increment this when an item is used from a pool
     u8 pool_allocation_count_[bitset_item_count()] = {0};
