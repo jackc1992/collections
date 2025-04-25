@@ -71,12 +71,7 @@ private:
         return int_ceil(capacity, 64);
     }
 
-    static constexpr size_t get_arr_index(size_t pos)
-    {
-        return arr_len() / 64;
-    }
-
-    u64 bits[arr_len()] = {0};
+    u64 bits[arr_len()] {};
 };
 } // namespace jc::collections
 
