@@ -10,7 +10,7 @@
 #include <optional>
 #include <type_traits>
 
-namespace JC_SPSC
+namespace jc::lockfree
 {
 
 template <std::size_t sz>
@@ -139,7 +139,31 @@ public:
      * provided as in testing it's noticeably faster than calling a while loop with try_put until the element is
      * inserted.
      */
-    void put(T &&element)
+    template <typename... Args>
+    void emplace(Args &&...args) noexcept(std::is_nothrow_constructible_v<T, Args &&...>)
+    {
+        auto const idx = writer_.idx_.load(std::memory_order::relaxed);
+
+        while (idx - writer_.cached_idx_ == sz)
+        {
+            writer_.cached_idx_ = reader_.idx_.load(std::memory_order_acquire);
+        }
+
+        new (&items_[idx & mask]) T(std::forward<Args>(args)...);
+        writer_.idx_.store(idx + 1, std::memory_order::release);
+    }
+
+    /*
+     * spin here and busy wait to remove latency. In order to reduce the cost of calling the function, this option is
+     * provided as in testing it's noticeably faster than calling a while loop with try_put until the element is
+     * inserted.
+     */
+    void put(T &&element) noexcept
+    {
+        emplace(std::move(element));
+    }
+
+    void put(T &element) noexcept
     {
         std::size_t idx = writer_.idx_.load(std::memory_order::relaxed);
         while (idx - writer_.cached_idx_ == sz)
@@ -148,34 +172,6 @@ public:
         }
 
         std::memcpy(&items_[idx & mask], &element, sizeof(T));
-        writer_.idx_.store(idx + 1, std::memory_order::release);
-    }
-
-    void put(T &element)
-    {
-        std::size_t idx = writer_.idx_.load(std::memory_order::relaxed);
-        while (idx - writer_.cached_idx_ == sz)
-        {
-            writer_.cached_idx_ = reader_.idx_.load(std::memory_order_acquire);
-        }
-
-        std::memcpy(&items_[idx & mask], &element, sizeof(T));
-        writer_.idx_.store(idx + 1, std::memory_order::release);
-    }
-
-    std::size_t get_write(T **ptr)
-    {
-        std::size_t idx = writer_.idx_.load(std::memory_order::relaxed);
-        while (idx - writer_.cached_idx_ == sz)
-        {
-            writer_.cached_idx_ = reader_.idx_.load(std::memory_order_acquire);
-        }
-        ptr[0] = &items_[idx & mask];
-        return idx;
-    }
-
-    void commit(std::size_t idx)
-    {
         writer_.idx_.store(idx + 1, std::memory_order::release);
     }
 
@@ -202,7 +198,7 @@ public:
      * spin here and busy wait to remove latency. In order to reduce the cost of calling the function, this option is
      * provided as in testing it's noticeably faster than calling a while loop externally.
      */
-    T read()
+    [[nodiscard]] T read() noexcept
     {
         std::size_t idx = reader_.idx_.load(std::memory_order::relaxed);
         while (idx == reader_.cached_idx_)
@@ -216,5 +212,5 @@ public:
         return result;
     }
 };
-} // namespace JC_SPSC
+} // namespace jc::lockfree
 #endif
