@@ -38,25 +38,34 @@ public:
     {
         assert(n <= 256, "this allocator only supports allocations up to 256");
         assert(n > 0, "allocation amount must be positive");
-        if (pool_allocation_count_[current_bit_] <= 256 - n)
+        if (n == 256)
         {
-            const size_t idx = (current_bit_ * 256) + pool_allocation_count_[current_bit_];
-            pool_allocation_count_[current_bit_] += n;
-            return &items_[idx];
-        }
-        else
-        {
-            // guaranteed to be first here
             const i64 index = (bits_.get_and_set());
             if (index < 0) [[unlikely]]
             {
                 return nullptr;
             }
-            current_bit_                         = static_cast<size_t>(index);
-            const pointer ptr                    = &items_[current_bit_ * 256];
-            pool_allocation_count_[current_bit_] = n;
-            return ptr;
+
+            const size_t slab_idx         = static_cast<size_t>(index);
+            pool_allocation_count_[index] = n;
+            return &items_[slab_idx * 256];
         }
+        if (pool_allocation_count_[current_bit_] <= 256 - n)
+        {
+            const size_t idx                     = (current_bit_ * 256) + pool_allocation_count_[current_bit_];
+            pool_allocation_count_[current_bit_] = n;
+            return &items_[idx];
+        }
+        // guaranteed to be first here
+        const i64 index = (bits_.get_and_set());
+        if (index < 0) [[unlikely]]
+        {
+            return nullptr;
+        }
+        current_bit_                         = static_cast<size_t>(index);
+        const pointer ptr                    = &items_[current_bit_ * 256];
+        pool_allocation_count_[current_bit_] = n;
+        return ptr;
     }
     void deallocate(T *p, const size_t n) noexcept
     {
@@ -84,7 +93,10 @@ public:
             pool_allocation_count_[index] = 0;
         }
     }
-    size_t max_size() const noexcept;
+    static size_t max_size() noexcept
+    {
+        return 256;
+    }
 
 private:
     static constexpr size_t bitset_item_count()
