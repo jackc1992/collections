@@ -1,5 +1,6 @@
 #ifndef JC_BTREE_H
 #define JC_BTREE_H
+#include <bits/memory_resource.h>
 #include <jc_collections/util.h>
 
 namespace jc::collections
@@ -12,11 +13,28 @@ class b_tree
 {
     struct Node
     {
-        size_t count;
-        Key keys_[node_count];
-        Val values_[node_count];
-        Node* children_[node_count];
+        size_t count = 0;
+        Key keys_[node_count]{0};
+        Val values_[node_count]{0};
+        Node *children_[node_count + 1]{};
     };
+
+public:
+    explicit b_tree(Allocator &allocator) : root_(nullptr), allocator_(allocator)
+    {
+        root_ = std::allocator_traits<Allocator>::allocate(allocator_, 1);
+        std::allocator_traits<Allocator>::construct(allocator_, root_);
+    }
+
+    template<typename ...Args>
+    bool emplace(Args &&... args)
+    {
+
+    }
+
+private:
+    Node *root_;
+    [[no_unique_address]] Allocator allocator_;
 };
 } // namespace jc::collections
 
